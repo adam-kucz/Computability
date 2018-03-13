@@ -1,3 +1,5 @@
+# README OUT OF DATE, project WIP
+
 ## Running
 
 #### Windows
