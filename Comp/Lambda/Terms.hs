@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module LambdaTerms (
+module Comp.Lambda.Terms (
   alphaEquiv,
   subs,
   toBNF,
@@ -12,8 +12,8 @@ import qualified Data.Set as Set
 
 import Data.Maybe (isJust, fromJust)
 
-import LambdaTypes
-import LambdaUtil
+import Comp.Lambda.Types
+import Comp.Lambda.Util
 
 freeVariables :: LambdaTerm -> Set Var
 freeVariables = foldLT Set.singleton (\v mVars -> mVars \\ Set.singleton v) union

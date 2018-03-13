@@ -1,12 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module LambdaParser (
+module Comp.Lambda.Parser (
   prettyShow,
   fromString
 ) where
 
-import LambdaTypes
-import LambdaUtil
+import Comp.Lambda.Types
+import Comp.Lambda.Util
 
 import Control.Monad.State.Class (MonadState, get, put, modify)
 import Control.Monad (MonadPlus, mzero)

@@ -1,4 +1,4 @@
-module LambdaUtil (
+module Comp.Lambda.Util (
   foldLT,
   subsVar,
   isAbsent,
@@ -12,7 +12,7 @@ module LambdaUtil (
 import Data.Set (Set, union)
 import qualified Data.Set as Set
 
-import LambdaTypes
+import Comp.Lambda.Types
 
 import Debug.Trace (trace)
 

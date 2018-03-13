@@ -1,4 +1,4 @@
-module LambdaComputability (
+module Comp.Lambda.Comp (
   churchNum,
   projF,
   zeroF,
@@ -9,10 +9,10 @@ import Data.Maybe (fromJust)
 
 import Data.Natural
 
-import LambdaTypes
-import LambdaUtil
-import LambdaParser
-import LambdaTerms
+import Comp.Lambda.Types
+import Comp.Lambda.Util
+import Comp.Lambda.Parser
+import Comp.Lambda.Terms
 
 unsafeRead :: String -> LambdaTerm
 unsafeRead = fromJust . fromString

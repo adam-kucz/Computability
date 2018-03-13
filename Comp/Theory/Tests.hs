@@ -1,11 +1,11 @@
-module Comp.Tests (
+module Comp.Theory.Tests (
   addC, predC, multC,
   unOpTest, binOpTest
 ) where
 
 import Data.Natural (Natural)
 
-import Comp.Comp (Comp(..))
+import Comp.Theory.Class (Comp(..))
 
 addC :: Comp a => a
 addC = primRecC 1 (projC 1 1) (composeC 3 1 succC [projC 3 3])

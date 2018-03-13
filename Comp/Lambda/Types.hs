@@ -1,4 +1,4 @@
-module LambdaTypes (
+module Comp.Lambda.Types (
   Var,
   LambdaTerm(..),
   ($$)

@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module LambdaInterface (
+module Comp.Lambda.Interface (
   humanFriendlySubs,
   humanFriendlyBNF
 ) where 
@@ -15,13 +15,13 @@ import Data.Maybe (isJust, fromJust)
 
 import Data.Natural
 
-import Computable.Comp (Comp(..))
+import Comp.Theory.Class (Comp(..))
 
-import LambdaTypes
-import LambdaUtil
-import LambdaTerms
-import LambdaComputability
-import LambdaParser
+import Comp.Lambda.Types
+import Comp.Lambda.Util
+import Comp.Lambda.Terms
+import Comp.Lambda.Comp
+import Comp.Lambda.Parser
 
 -- TODO: rewrite as a makeHumanFriendly :: LambdaTerm -> LambdaTerm function
 
