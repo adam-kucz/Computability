@@ -2,10 +2,14 @@ module Comp.Lambda.Comp (
   churchNum,
   projF,
   zeroF,
-  succF
+  succF,
+  composeF,
+  primRecF,
+  minimizeF
 ) where
 
 import Data.Maybe (fromJust)
+import qualified Data.Set as Set
 
 import Data.Natural
 
@@ -53,21 +57,25 @@ yCombinator :: LambdaTerm
 yCombinator = unsafeRead "λ f . (λ x . f (x x)) (λ x . f (x x))"
 
 -- functions for partial recursive set
-projF :: Natural -> Natural -> LambdaTerm
-projF n i = unsafeRead $ "λ" ++ mconcat [" x"++show i | i <- [1..n]] ++ " . x" ++ show i
-
-zeroF :: Natural -> LambdaTerm
-zeroF = const $ churchNum 0
-
 succF :: LambdaTerm
 succF = unsafeRead "λ n . λ f x . f (n f x)"
 
-composeF :: Natural -> Natural -> LambdaTerm -> [LambdaTerm] -> LambdaTerm
-composeF m n fLT gLTs = bindXs $ gChecks $$ appliedF
+zeroF :: Natural -> LambdaTerm
+zeroF n = bindAll xVars z
+  where z :: LambdaTerm
+        z = churchNum 0
+        xVars :: [Var]
+        xVars = getNNewVars (fromIntegral n) [z]
+
+projF :: Natural -> Natural -> LambdaTerm
+projF n i = bindAll xVars . V $ xVars !! (fromIntegral i - 1)
   where xVars :: [Var]
-        xVars = getNNewVars (fromIntegral m) (fLT:gLTs)
-        bindXs :: LambdaTerm -> LambdaTerm
-        bindXs lt = foldr Lambda lt xVars
+        xVars = getNNewVarsExcept (fromIntegral n) Set.empty
+
+composeF :: Natural -> Natural -> LambdaTerm -> [LambdaTerm] -> LambdaTerm
+composeF m n fLT gLTs | length gLTs == fromIntegral m = bindAll xVars $ gChecks $$ appliedF
+  where xVars :: [Var]
+        xVars = getNNewVars (fromIntegral n) (fLT:gLTs)
         applyToXs :: LambdaTerm -> LambdaTerm
         applyToXs = applyToAll [V x | x <- xVars]
         appliedGs :: [LambdaTerm]
@@ -78,39 +86,32 @@ composeF m n fLT gLTs = bindXs $ gChecks $$ appliedF
         appliedF = applyToAll appliedGs fLT
 
 primRecF :: Natural -> LambdaTerm -> LambdaTerm -> LambdaTerm
-primRecF n f g =  App yCombinator . 
+primRecF n f g =  App yCombinator .
                   Lambda h . 
-                  bindXs $
+                  bindAll vars .
+                  Lambda x $
                   if' $$
                   (eq0 $$ V x) $$
                   applyToXs f $$
                   (applyToXs g $$ xPred $$ (applyToXs (V h) $$ xPred))
   where (h:x:vars) = getNNewVars (2 + fromIntegral n) [f,g]
-        bindXs :: LambdaTerm -> LambdaTerm
-        bindXs lt = foldr Lambda lt vars
         applyToXs :: LambdaTerm -> LambdaTerm
         applyToXs = applyToAll [V y | y <- vars]
         xPred :: LambdaTerm
         xPred = App pred' $ V x
 
 minimizeF :: Natural -> LambdaTerm -> LambdaTerm
-minimizeF n f = bindXs $ applyToXs (yCombinator $$ body) $$ churchNum 0
+minimizeF n f = bindAll vars $ applyToXs (yCombinator $$ body) $$ churchNum 0
   where body =  Lambda g . 
-                bindXs . 
+                bindAll vars . 
                 Lambda x $ 
                 if' $$ 
                 (eq0 $$ (applyToXs f $$ V x)) $$
                 V x $$
                 (applyToXs (V g) $$ (succF $$ V x))
         (g:x:vars) = getNNewVars (2 + fromIntegral n) [f]
-        bindXs :: LambdaTerm -> LambdaTerm
-        bindXs lt = foldr Lambda lt vars
         applyToXs :: LambdaTerm -> LambdaTerm
         applyToXs = applyToAll [V y | y <- vars]
-
-
-
-
 
 
 

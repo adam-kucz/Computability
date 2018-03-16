@@ -4,8 +4,10 @@ module Comp.Lambda.Util (
   isAbsent,
   variables,
   getNewVarExcept,
+  getNNewVarsExcept,
   getNewVar,
   getNNewVars,
+  bindAll,
   applyToAll
 ) where 
 
@@ -52,3 +54,6 @@ getNewVar = head . getNNewVars 1
 
 applyToAll :: [LambdaTerm] -> LambdaTerm -> LambdaTerm
 applyToAll xs lt = foldl App lt xs
+        
+bindAll :: [Var] -> LambdaTerm -> LambdaTerm
+bindAll vars lt = foldr Lambda lt vars

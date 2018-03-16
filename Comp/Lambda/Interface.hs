@@ -1,11 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Comp.Lambda.Interface (
-  humanFriendlySubs,
-  humanFriendlyBNF
+  makeHumanFriendly
 ) where 
 
-import Control.Monad.State.Class (MonadState, gets, modify)
+import Control.Monad.State.Class (MonadState, state, gets, modify)
 import Control.Monad.State (evalState)
 
 import Data.Set (Set, union)
@@ -23,7 +22,10 @@ import Comp.Lambda.Terms
 import Comp.Lambda.Comp
 import Comp.Lambda.Parser
 
--- TODO: rewrite as a makeHumanFriendly :: LambdaTerm -> LambdaTerm function
+import Debug.Trace (trace)
+
+-- TODO: test and verify tH out of makeHumanFriendly
+-- ///TODO: rewrite as a makeHumanFriendly :: LambdaTerm -> LambdaTerm function
 
 humanFriendlySubs :: LambdaTerm -> Var -> LambdaTerm -> LambdaTerm
 humanFriendlySubs m x n = evalState (subsMX n) (Set.singleton x `union` variables m `union` variables n)
@@ -42,12 +44,13 @@ humanFriendlySubs m x n = evalState (subsMX n) (Set.singleton x `union` variable
               modify $ Set.insert z
               n' <- subsMX $ subsVar z y n
               return $ Lambda z n'
-          where z = getNewVar (App m $ V x)
+          where z = getNewVar [m, V x]
         subsMX (App n1 n2)  = do
           n1' <- subsMX n1
           n2' <- subsMX n2
           return $ App n1' n2'
 
+{-
 -- uses outer-most, left-most reduction order    
 hfOneStepBetaReduce :: LambdaTerm -> Maybe LambdaTerm
 hfOneStepBetaReduce (App (Lambda x m) n) 
@@ -69,18 +72,40 @@ humanFriendlyBNF :: LambdaTerm -> LambdaTerm
 humanFriendlyBNF m = case hfOneStepBetaReduce m of
                       Just m' -> humanFriendlyBNF m'
                       Nothing -> m
+-}
+
+hfVars :: [Var]
+hfVars = [ c : s | s <- "" : hfVars, c <- alphabet]
+  where alphabet = ['a'..'z']
+
+-- TODO: implement
+makeHumanFriendly :: LambdaTerm -> LambdaTerm
+makeHumanFriendly lt = evalState (go lt) $ filter (`notElem` freeVariables lt) hfVars
+  where go :: MonadState [Var] m => LambdaTerm -> m LambdaTerm
+        go (Lambda x lt)  = do
+          x' <- state $ \(h:t) -> (h, t)
+          lt' <- go lt
+          return . Lambda x' $ humanFriendlySubs (V x') x lt'
+          --trace ("lt' = " ++ prettyShow lt') .
+          --  trace ("returning = " ++ (prettyShow . Lambda x' $ humanFriendlySubs (V x') x lt')) . 
+          --  return . Lambda x' $ humanFriendlySubs (V x') x lt'
+        go (V x)          = return $ V x
+        go (App l1 l2)    = do
+          l1' <- go l1
+          l2' <- go l2
+          return $ App l1' l2'
 
 churchAsFunction :: LambdaTerm -> (a -> a) -> a -> a
 churchAsFunction (Lambda f' (Lambda x' l)) f x = go l
   where go (V v)          | v == x' = x
         go (App (V v) l') | v == f' = f (go l')
         go _                        = undefined
-          
+churchAsFunction lt f x = error $ "This is not a church numeral: " ++ prettyShow lt
+        
 toNatural :: LambdaTerm -> Natural
 toNatural n = churchAsFunction (toBNF n) (+1) 0
 
 instance Comp LambdaTerm where
-  computeC :: a -> [Natural] -> Natural
   computeC lt ns = toNatural $ applyToAll [churchNum n | n <- ns] lt
   
   succC = succF
@@ -89,3 +114,5 @@ instance Comp LambdaTerm where
   composeC = composeF
   primRecC = primRecF
   minimizeC = minimizeF
+  
+  constC = churchNum

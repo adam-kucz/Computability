@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Comp.Lambda.Terms (
+  freeVariables,
+  boundVariables,
   alphaEquiv,
   subs,
   toBNF,
@@ -55,7 +57,7 @@ oneStepBetaReduce (App m n)
         mn' = oneStepBetaReduce n
         m' = fromJust mm'
         n' = fromJust mn'
-oneStepBetaReduce l = Nothing
+oneStepBetaReduce _ = Nothing
 -- TODO: think about the following rule:
 -- given N `alphaEquiv` M and M' = oneStepBetaReduce M and M' `alphaEquiv` N'
 -- we have N' = oneStepBetaReduce M'
