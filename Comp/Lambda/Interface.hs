@@ -1,28 +1,32 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, ScopedTypeVariables #-}
 
 module Comp.Lambda.Interface (
-  makeHumanFriendly
-) where 
+  makeHumanFriendly,
+  betaReduceAndLog
+) where
 
-import Control.Monad.State.Class (MonadState, state, gets, modify)
+import Control.Applicative ((<|>))
+
+import Control.Monad (MonadPlus, mzero)
+import Control.Monad.Writer.Class (MonadWriter, tell)
+import Control.Monad.Writer (runWriter)
+import Control.Monad.State.Class (MonadState, state, put, gets, modify)
 import Control.Monad.State (evalState)
+import Control.Monad.Trans.Maybe (runMaybeT)
 
 import Data.Set (Set, union)
 import qualified Data.Set as Set
 
-import Data.Maybe (isJust, fromJust)
-
+import Data.Maybe (maybe, isJust, fromJust)
 import Data.Natural
 
-import Comp.Theory.Class (Comp(..))
+import Comp.Theory.Class
 
 import Comp.Lambda.Types
 import Comp.Lambda.Util
 import Comp.Lambda.Terms
 import Comp.Lambda.Comp
 import Comp.Lambda.Parser
-
-import Debug.Trace (trace)
 
 -- TODO: test and verify tH out of makeHumanFriendly
 -- ///TODO: rewrite as a makeHumanFriendly :: LambdaTerm -> LambdaTerm function
@@ -95,24 +99,49 @@ makeHumanFriendly lt = evalState (go lt) $ filter (`notElem` freeVariables lt) h
           l2' <- go l2
           return $ App l1' l2'
 
-churchAsFunction :: LambdaTerm -> (a -> a) -> a -> a
+churchAsFunction :: LambdaTerm -> (a -> a) -> a -> Maybe a
 churchAsFunction (Lambda f' (Lambda x' l)) f x = go l
-  where go (V v)          | v == x' = x
-        go (App (V v) l') | v == f' = f (go l')
-        go _                        = undefined
-churchAsFunction lt f x = error $ "This is not a church numeral: " ++ prettyShow lt
+  where go (V v)          | v == x' = Just $ x
+        go (App (V v) l') | v == f' = f <$> go l'
+        go _                        = Nothing
+churchAsFunction _ _ _ = Nothing
         
-toNatural :: LambdaTerm -> Natural
-toNatural n = churchAsFunction (toBNF n) (+1) 0
+toNatural :: LambdaTerm -> Maybe Natural
+toNatural n = churchAsFunction n (+1) 0
 
-instance Comp LambdaTerm where
-  computeC lt ns = toNatural $ applyToAll [churchNum n | n <- ns] lt
-  
+-- uses outer-most, left-most reduction order    
+betaReduceAndLog :: (([ReduKind], LambdaTerm, LambdaTerm) -> a) -> LambdaTerm -> (Maybe LambdaTerm, a)
+betaReduceAndLog f lt =
+    let (maybeLT', reduChain) = runWriter . runMaybeT $ go lt in
+    (maybeLT', f (reduChain, lt, maybe lt id maybeLT'))
+  where go :: (MonadWriter [ReduKind] m, MonadPlus m) => LambdaTerm -> m LambdaTerm
+        go lt@(App (Lambda x m) n) = do
+          let lt' = subs n x m
+          tell [DoApp]
+          return lt'
+        go lt@(Lambda x m) = do
+          tell [ReduBody]
+          m' <- go m
+          return $ Lambda x m'
+        go (App m n) = (do
+          tell [ReduLeft]
+          m' <- go m
+          return $ App m' n) <|> do
+          tell [ReduRight]
+          n' <- go n
+          return $ App m n'
+        go _ = mzero
+
+instance Comp LambdaTerm LambdaTerm where
   succC = succF
   zeroC = zeroF
   projC = projF
   composeC = composeF
   primRecC = primRecF
   minimizeC = minimizeF
-  
   constC = churchNum
+  
+  initC lt ns = applyToAll [churchNum n | n <- ns] lt
+  stepC = oneStepBetaReduce
+  getResultC = toNatural
+  runC lt = fromJust . getResultC . toBNF . initC lt

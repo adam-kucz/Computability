@@ -6,6 +6,7 @@ module Comp.Lambda.Terms (
   alphaEquiv,
   subs,
   toBNF,
+  oneStepBetaReduce,
   betaEquiv
 ) where 
 

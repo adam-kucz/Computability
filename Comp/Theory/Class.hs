@@ -1,15 +1,17 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FunctionalDependencies #-}
 
 module Comp.Theory.Class (
-  Comp(..)
+  Comp(..),
+  Natural
 ) where
 
 import Control.Monad.Writer.Class (MonadWriter, tell)
 import Control.Monad.Writer (runWriter)
 
+import Data.Maybe (fromJust, catMaybes)
 import Data.Natural (Natural)
 
-class Comp a b | a -> b where
+class Comp a b | a -> b, b -> a where
   {-# MINIMAL succC, zeroC, projC, composeC, primRecC, minimizeC, initC, stepC, getResultC #-}
   
   succC :: a
@@ -28,17 +30,22 @@ class Comp a b | a -> b where
   initC :: a -> [Natural] -> b
   stepC :: b -> Maybe b
   getResultC :: b -> Maybe Natural
+  traceCWith :: Monoid c => (b -> (Maybe b, c)) -> a -> [Natural] -> (Natural, c)
   traceC :: a -> [Natural] -> (Natural, [b])
   runC :: a -> [Natural] -> Natural
   
   constC 0 = zeroC 0
   constC n = composeC 1 0 succC [constC (n-1)]
   
-  traceC program args = runWriter . go $ initC program args
-    where go :: MonadWriter [b] m => b -> m Natural
+  traceCWith logStep program args = runWriter . go $ initC program args
+    where -- go :: MonadWriter [c] m => b -> m Natural
           go b = do
-            tell [b]
-            case stepC b of
+            let (mb', c) = logStep b
+            tell c
+            case mb' of
               Just b' -> go b'
               Nothing -> return . fromJust $ getResultC b
+  traceC program args = 
+    let (a, log) = traceCWith (\b -> let mb' = stepC b in (mb', [mb'])) program args
+    in  (a, catMaybes log)
   runC program args = fst $ traceC program args

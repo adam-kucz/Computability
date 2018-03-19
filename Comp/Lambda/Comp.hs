@@ -57,6 +57,7 @@ yCombinator :: LambdaTerm
 yCombinator = unsafeRead "λ f . (λ x . f (x x)) (λ x . f (x x))"
 
 -- functions for partial recursive set
+-- TODO: analyse their complexity formally
 succF :: LambdaTerm
 succF = unsafeRead "λ n . λ f x . f (n f x)"
 
@@ -72,6 +73,7 @@ projF n i = bindAll xVars . V $ xVars !! (fromIntegral i - 1)
   where xVars :: [Var]
         xVars = getNNewVarsExcept (fromIntegral n) Set.empty
 
+-- TODO: implement more efficiently
 composeF :: Natural -> Natural -> LambdaTerm -> [LambdaTerm] -> LambdaTerm
 composeF m n fLT gLTs | length gLTs == fromIntegral m = bindAll xVars $ gChecks $$ appliedF
   where xVars :: [Var]
