@@ -9,10 +9,10 @@ import Control.Applicative ((<|>))
 
 import Control.Monad (MonadPlus, mzero)
 import Control.Monad.Writer.Class (MonadWriter, tell)
-import Control.Monad.Writer (runWriter)
-import Control.Monad.State.Class (MonadState, state, put, gets, modify)
-import Control.Monad.State (evalState)
+import Control.Monad.State.Class (MonadState, state, put, get, gets, modify)
+import Control.Monad.Trans.Writer (execWriterT)
 import Control.Monad.Trans.Maybe (runMaybeT)
+import Control.Monad.Trans.State (evalState)
 
 import Data.Set (Set, union)
 import qualified Data.Set as Set
@@ -99,38 +99,36 @@ makeHumanFriendly lt = evalState (go lt) $ filter (`notElem` freeVariables lt) h
           l2' <- go l2
           return $ App l1' l2'
 
-churchAsFunction :: LambdaTerm -> (a -> a) -> a -> Maybe a
-churchAsFunction (Lambda f' (Lambda x' l)) f x = go l
-  where go (V v)          | v == x' = Just $ x
-        go (App (V v) l') | v == f' = f <$> go l'
-        go _                        = Nothing
-churchAsFunction _ _ _ = Nothing
+churchAsFunction :: (MonadState LambdaTerm m, MonadPlus m) => (a -> a) -> a -> m a
+churchAsFunction f x = do
+  lt <- get
+  case lt of
+    (Lambda f' (Lambda x' l)) -> go l
+      where go (V v)          | v == x' = return x
+            go (App (V v) l') | v == f' = f <$> go l'
+            go _                        = mzero
+    _                         -> mzero
         
-toNatural :: LambdaTerm -> Maybe Natural
-toNatural n = churchAsFunction n (+1) 0
+toNatural :: (MonadState LambdaTerm m, MonadPlus m) => m Natural
+toNatural = churchAsFunction (+1) 0
 
 -- uses outer-most, left-most reduction order    
-betaReduceAndLog :: (([ReduKind], LambdaTerm, LambdaTerm) -> a) -> LambdaTerm -> (Maybe LambdaTerm, a)
-betaReduceAndLog f lt =
-    let (maybeLT', reduChain) = runWriter . runMaybeT $ go lt in
-    (maybeLT', f (reduChain, lt, maybe lt id maybeLT'))
-  where go :: (MonadWriter [ReduKind] m, MonadPlus m) => LambdaTerm -> m LambdaTerm
-        go lt@(App (Lambda x m) n) = do
-          let lt' = subs n x m
-          tell [DoApp]
-          return lt'
-        go lt@(Lambda x m) = do
-          tell [ReduBody]
-          m' <- go m
-          return $ Lambda x m'
-        go (App m n) = (do
-          tell [ReduLeft]
-          m' <- go m
-          return $ App m' n) <|> do
-          tell [ReduRight]
-          n' <- go n
-          return $ App m n'
-        go _ = mzero
+betaReduceAndLog :: (MonadState LambdaTerm m, MonadPlus m, MonadWriter c m, Monoid c) => 
+                      (([ReduKind], LambdaTerm, LambdaTerm) -> c) -> m ()
+betaReduceAndLog f = do
+  lt <- get
+  chain <- execWriterT go
+  lt' <- get
+  tell $ f (chain, lt, lt')
+  where go :: (MonadWriter [ReduKind] n, MonadState LambdaTerm n, MonadPlus n) => n ()
+        go = do
+          lt <- get
+          case lt of 
+            App (Lambda x m) n  ->  tell [DoApp] >> put (subs n x m)
+            Lambda x m          ->  tell [ReduBody] >> put m >> go >> get >>= \m' -> put $ Lambda x m'
+            App m n             -> (tell [ReduLeft] >> put m >> go >> get >>= \m' -> put $ App m' n) <|> 
+                                   (tell [ReduRight] >> put n >> go >> get >>= \n' -> put $ App m n')
+            _                   -> mzero
 
 instance Comp LambdaTerm LambdaTerm where
   succC = succF
@@ -144,4 +142,3 @@ instance Comp LambdaTerm LambdaTerm where
   initC lt ns = applyToAll [churchNum n | n <- ns] lt
   stepC = oneStepBetaReduce
   getResultC = toNatural
-  runC lt = fromJust . getResultC . toBNF . initC lt

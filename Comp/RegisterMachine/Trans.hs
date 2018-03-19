@@ -1,5 +1,6 @@
 module Comp.RegisterMachine.Trans (
   getRegs, getUnusedRegs,
+  sequenceMachines,
   assembleOneHaltMachine, assembleTwoHaltMachine,
   simplifyHalts, normalizeHalts,
   oneOutput, twoOutput
@@ -47,6 +48,13 @@ getUnusedRegs rms = filter (`Set.notMember` used) [0..]
   where used = Set.unions (fmap getRegs rms)
 
 type MachineAssembler k = Map k Location -> Natural -> RegisterMachine -> RegisterMachine
+
+sequenceMachines :: [RegisterMachine] -> RegisterMachine
+sequenceMachines [] = [HALT]
+sequenceMachines (m:ms) = assembleOneHaltMachine machines "init" "halt"
+  where machines = Map.fromList
+          [ ("init",      (m,                   oneOutput "recursive")),
+            ("recursive", (sequenceMachines ms, oneOutput "halt"))]
 
 assembleOneHaltMachine :: Ord k => Map k (RegisterMachine, MachineAssembler k) -> k -> k -> RegisterMachine
 assembleOneHaltMachine machines startMachine haltName = simplifyHalts $ fold assembled ++ [HALT]

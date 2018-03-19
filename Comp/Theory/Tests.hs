@@ -6,6 +6,10 @@ module Comp.Theory.Tests (
   testSuite
 ) where
 
+import Control.Monad (MonadPlus)
+import Control.Monad.State.Class (MonadState)
+import Control.Monad.Writer.Class (MonadWriter)
+
 import Data.Natural (Natural)
 
 import Comp.Theory.Class
@@ -35,8 +39,7 @@ expr2 :: Comp a b => a
 expr2 = primRecC 0 (zeroC 0) (projC 2 2)
 -}
 
-testExpression :: (Comp a b, Monoid c, Show s) => 
-                    (b -> (Maybe b, c)) -> (c -> s) -> String -> a -> [Natural] -> IO ()
+testExpression :: (Comp a b, Monoid c, Show s) => LogStep c b -> (c -> s) -> String -> a -> [Natural] -> IO ()
 testExpression stepAndLog processTrace name comp args = do
   let (r, t) = traceCWith stepAndLog comp args
   putStrLn $ "Testing " ++ name
@@ -45,7 +48,7 @@ testExpression stepAndLog processTrace name comp args = do
   putStrLn ""
 
 testManyExprs :: (Comp a b, Monoid c, Show s1, Show s2) => 
-                  (b -> (Maybe b, c)) -> (c -> s1) -> String -> (s2 -> (a, [Natural])) -> [s2] -> IO ()
+                  LogStep c b -> (c -> s1) -> String -> (s2 -> (a, [Natural])) -> [s2] -> IO ()
 testManyExprs stepAndLog processTrace name extractor ns = do
   putStrLn $ "Testing " ++ name
   let rs = testOne . extractor <$> ns
@@ -54,7 +57,7 @@ testManyExprs stepAndLog processTrace name extractor ns = do
   putStrLn ""
   where testOne (comp,args) = (\(r, t) -> (r, processTrace t)) $ traceCWith stepAndLog comp args
   
-testSuite :: forall a b c s1 . (Comp a b, Monoid c, Show s1) => (b -> (Maybe b, c)) -> (c -> s1) -> IO ()
+testSuite :: forall a b c s1 . (Comp a b, Monoid c, Show s1) => LogStep c b -> (c -> s1) -> IO ()
 testSuite stepAndLog processTrace = do
   doTests "constant" (\n -> (constC n, [])) [0..10]
   doTests "successor" (\n -> (succC, [n])) [0..10]

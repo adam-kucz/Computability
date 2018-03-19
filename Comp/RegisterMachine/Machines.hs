@@ -1,11 +1,10 @@
 module Comp.RegisterMachine.Machines (
-  copyReg, push, pop, zeroReg, dec, inc,
+  copyReg, zeroReg, 
+  copyRegs, zeroRegs,
+  push, pop, dec, inc, areEqual,
   universal, universalInstance,
   adder, multiplier, proj, constant,
-  copyRegs
 ) where
-
-import qualified Data.List as List
 
 import qualified Data.Map as Map
 
@@ -105,15 +104,20 @@ proj = normalizeHalts
     INC 0 0]
     
 constant :: Natural -> RegisterMachine
-constant 0 = [HALT]
-constant n = assembleOneHaltMachine machines "inc1" "halt"
-  where machines = Map.fromList
-          [ ("inc1",      ([INC 0 1, HALT], oneOutput "recursive")),
-            ("recursive", (constant (n-1),  oneOutput "halt"))]
+constant n = sequenceMachines $ replicate (fromIntegral n) [INC 0 1, HALT]
 
-copyRegs :: [Register] -> [Register] -> Register -> Maybe RegisterMachine
-copyRegs [] [] aux                    = [HALT]
-copyRegs srcs@(x:xs) dsts@(y:ys) aux  = assembleOneHaltMachine machines "setX" "halt"
-  where machines = Map.fromList
-          [ ("setX",      (copyReg x y aux, oneOutput "recursive")),
-            ("recursive", (unsafeCopyRegs xs ys aux,  oneOutput "halt"))]
+copyRegs :: [Register] -> [Register] -> Register -> RegisterMachine
+copyRegs xs ys aux = sequenceMachines . fmap ($ aux) $ zipWith ($) (copyReg <$> xs) ys
+
+zeroRegs :: [Register] -> RegisterMachine
+zeroRegs = sequenceMachines . fmap zeroReg
+
+areEqual :: Register -> Register -> Register -> Register -> Register -> RegisterMachine
+areEqual x y x' y' aux = sequenceMachines [copyReg x x' aux, copyReg y y' aux, ls]
+  where ls = [  DEC x' 1 2,
+                DEC y' 0 no,
+                DEC y' no yes,
+                HALT,
+                HALT]
+        yes = fromIntegral $ length ls - 2
+        no = fromIntegral $ length ls - 1

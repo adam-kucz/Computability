@@ -5,8 +5,7 @@ module Comp.RegisterMachine.Types (
     Instruction(..),
     RegisterMachine,
     RegisterState,
-    ComputationState,
-    Format
+    RMState
 ) where
 
 import Data.Map (Map)
@@ -21,7 +20,4 @@ data Instruction =
   deriving (Read, Show, Eq)
 type RegisterMachine = [Instruction]
 type RegisterState = Map Register Natural
-type ComputationState = (Location, Instruction, RegisterState)
-
--- TODO: implement
-type Format = String
+type RMState = (RegisterMachine, Location, RegisterState)

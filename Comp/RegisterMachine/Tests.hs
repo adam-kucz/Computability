@@ -1,5 +1,37 @@
-module Comp.RegisterMachine.Tests where
+module Comp.RegisterMachine.Tests (
+) where
 
+import Control.Monad.Trans.State (evalState)
+
+import Data.Monoid (Sum(..), getSum)
+
+import Comp.Theory.Class
+import Comp.Theory.Tests
+import Comp.RegisterMachine.Types
+import Comp.RegisterMachine.Interface
+import Comp.RegisterMachine.Interpreter
+
+-- TODO: implement formats
+showStep :: (RMState, RMState) -> String
+showStep (s@(rm, l, rs), _) | l' < length rm = 
+  let i = rm !! l' in
+  case i of
+    HALT      -> show l ++ ": " ++ show HALT
+    INC r _   -> show l ++ ": " ++ show i ++ "   with R" ++ show r ++ " = " ++ show (getRegister r `evalState` s)
+    DEC r _ _ -> show l ++ ": " ++ show i ++   " with R" ++ show r ++ " = " ++ show (getRegister r `evalState` s)
+  where l' = fromIntegral l
+showStep _ = "RUNTIME ERROR: Stepping using an instruction out of bounds"
+
+isNonTerminal :: Num a => (RMState, RMState) -> Sum a
+isNonTerminal ((rm, l, rs), _) 
+  | l' < length rm = Sum $ if rm !! l' == HALT then 0 else 1
+  | otherwise = Sum 0
+  where l' = fromIntegral l
+
+main :: IO ()
+main = testSuite (stepAndLog isNonTerminal) getSum
+
+{-
 import Data.Map ((!))
 import qualified Data.Map as Map
 
@@ -62,3 +94,4 @@ time a = do
     let diff = (fromIntegral (end - start)) / (10^12)
     printf "Computation time: %0.3f sec\n" (diff :: Double)
     return v
+-}
